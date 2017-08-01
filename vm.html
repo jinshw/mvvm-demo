@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Document</title>
+    <script src="vm.js"></script>
+    <script>
+    var vm1 = vm.controller({
+        $id: 'test',
+        nickname: "积木村",
+        age: 22,
+    })
+
+    function changeText(){
+        vm1.nickname = "jinshw";
+    }
+    </script>
+</head>
+
+<body>
+    <div vm-controller="test">
+        <input type="text" vm-model="nickname" />
+        <span>
+            {{nickname}}
+        </span>
+    </div>
+    <button onclick="changeText()">dianji</button>
+</body>
+
+</html>

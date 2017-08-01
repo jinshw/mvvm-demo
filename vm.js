@@ -1,11 +1,11 @@
 (function () {
     /********************全局数据结构begin****************************/
-    var foio = {};
+    var vm = {};
     //用于
-    var rmsAttr = /foio-(\w+)-?(.*)/;
+    var rmsAttr = /vm-(\w+)-?(.*)/;
     var openTag = '{{';
     var closeTag = '}}';
-    foio.vmodels = [];
+    vm.vmodels = [];
     //每个指令相关的操作
     var directives = {
         //model指令相关操作
@@ -19,7 +19,6 @@
                             /^change/.test(elem.getAttribute("data-duplex-event")) ? "change" :
                                 "input";
             }
-
             binding.bound = function (type, callback) {
                 if (elem.addEventListener) {
                     elem.addEventListener(type, callback, false);
@@ -33,7 +32,6 @@
                 //搜索vmodels
                 closetVmodel[binding.expr] = val;
             };
-
             switch (binding.xtype) {
                 case "input":
                     binding.bound('input', updateVModel);
@@ -44,8 +42,8 @@
                     };
                     break;
             }
-        },
 
+        },
         //text指令相关操作
         text: function (binding) {
             binding.updateView = function (newVal) {
@@ -54,7 +52,8 @@
             //初始化绑定
             var closetVmodel = getClosetVmodel(binding);
             binding.element.nodeValue = closetVmodel.binder[binding.expr].apply(binding);
-        },
+        }
+
     };
     /********************全局数据结构end****************************/
 
@@ -70,20 +69,21 @@
         }
     }
 
+
     /********************节点扫描相关函数begin****************************/
-    foio.scan = function (elem, vmodel) {
+    vm.scan = function (elem, vmodel) {
         var elem = (elem || window.document.body);
         var vmodels = vmodel ? [].concat(vmodel) : [];
         scanTag(elem, vmodels);
     };
 
     function scanTag(elem, vmodels) {
-        //首先扫描节点上的foio-controller属性
-        var cnode = elem.getAttributeNode('foio-controller');
+        //首先扫描节点上的vm-controller属性
+        var cnode = elem.getAttributeNode('vm-controller');
         //当节点有controller标记时
         if (cnode) {
             //防止后续属性扫描时被重复处理
-            var newVmodel = foio.vmodels[cnode.value];
+            var newVmodel = vm.vmodels[cnode.value];
             //controller未定义
             if (!newVmodel) {
                 return;
@@ -94,6 +94,62 @@
         }
         //扫描其他属性
         scanAttr(elem, vmodels);
+    }
+
+    function scanAttr(elem, vmodels) {
+        var bindings = [];
+        var match = false;
+        /*
+            当vmodels.length为0时，表示还没有遍历到vm-controller节点，
+            因此不需要扫描本节点的其他属性
+        */
+        if (vmodels.length) {
+            var attributes = elem.getAttributes ? elem.getAttributes(elem) : elem.attributes;
+            //遍历节点的属性
+            for (var i = 0, attr; (attr = attributes[i++]);) {
+                //如果已指定属性specified为true
+                if (attr.specified) {
+                    //获取指令,其中rmsAttr = /vm-(\w+)-?(.*)/
+                    if ((match = attr.name.match(rmsAttr))) {
+                        var type = match[1];
+                        var param = match[2] || "";
+                        var value = attr.value;
+                        var name = attr.name;
+                        //存在相关指令
+                        if (directives[type]) {
+                            var binding = {
+                                type: type,
+                                param: param,
+                                element: elem,
+                                name: name,
+                                expr: value,
+                            };
+                            bindings.push(binding);
+                        }
+                    }
+                }
+            }
+
+            //处理绑定
+            if (bindings.length) {
+                executeBindings(bindings, vmodels);
+            }
+        }
+        scanChildNodes(elem, vmodels);
+    }
+
+    function scanChildNodes(parent, vmodels) {
+        var nodes = Array.prototype.slice.call(parent.childNodes);
+        for (var i = 0, node; (node = nodes[i++]);) {
+            switch (node.nodeType) {
+                case 1:
+                    scanTag(node, vmodels);
+                    break;
+                case 3:
+                    scanText(node, vmodels);
+                    break;
+            }
+        }
     }
 
     function scanText(textNode, vmodels) {
@@ -118,7 +174,6 @@
             executeBindings(bindings, vmodels);
         }
     }
-
 
     function scanExpr(str) {
         var tokens = [],
@@ -161,65 +216,6 @@
         return tokens;
     }
 
-
-    function scanAttr(elem, vmodels) {
-        var bindings = [];
-        var match = false;
-        /*
-            当vmodels.length为0时，表示还没有遍历到foio-controller节点，
-            因此不需要扫描本节点的其他属性
-        */
-        if (vmodels.length) {
-            var attributes = elem.getAttributes ? elem.getAttributes(elem) : elem.attributes;
-            //遍历节点的属性
-            for (var i = 0, attr; (attr = attributes[i++]);) {
-                //如果已指定属性specified为true
-                if (attr.specified) {
-                    //获取指令,其中rmsAttr = /foio-(\w+)-?(.*)/
-                    if ((match = attr.name.match(rmsAttr))) {
-                        var type = match[1];
-                        var param = match[2] || "";
-                        var value = attr.value;
-                        var name = attr.name;
-                        //存在相关指令
-                        if (directives[type]) {
-                            var binding = {
-                                type: type,
-                                param: param,
-                                element: elem,
-                                name: name,
-                                expr: value,
-                            };
-                            bindings.push(binding);
-                        }
-                    }
-                }
-            }
-
-            //处理绑定
-            if (bindings.length) {
-                executeBindings(bindings, vmodels);
-            }
-        }
-        scanChildNodes(elem, vmodels);
-    }
-
-
-    function scanChildNodes(parent, vmodels) {
-        var nodes = Array.prototype.slice.call(parent.childNodes);
-        for (var i = 0, node; (node = nodes[i++]);) {
-            switch (node.nodeType) {
-                case 1:
-                    scanTag(node, vmodels);
-                    break;
-                case 3:
-                    scanText(node, vmodels);
-                    break;
-            }
-        }
-    }
-
-
     function executeBindings(bindings, vmodels) {
         for (var i = 0, binding; (binding = bindings[i++]);) {
             binding.vmodels = vmodels;
@@ -229,18 +225,18 @@
 
     /********************节点扫描相关函数end****************************/
 
-    foio.controller = function (options) {
+    vm.controller = function (options) {
         var $id = options.$id;
         //id不能为空
         if (!$id) {
             throw Error('controller必须指定id');
         }
         //$id不能重复
-        if (foio.vmodels[$id]) {
+        if (vm.vmodels[$id]) {
             throw Error('重复定义controller:' + $id);
         }
         var vmodel = modelFactory(options);
-        return foio.vmodels[$id] = vmodel;
+        return vm.vmodels[$id] = vmodel;
     };
 
     function modelFactory(options) {
@@ -261,6 +257,7 @@
         }
         return $vmodel;
     }
+
 
     function makeAccessor(name, value) {
         //依赖数组
@@ -289,11 +286,12 @@
             configurable: true
         };
     }
-
-    window.foio = foio;
+    window.vm = vm;
 })();
 
 //DOM加载完成后开始扫描DOM
 document.addEventListener("DOMContentLoaded", function (event) {
-    foio.scan(window.document.body);
+    vm.scan(window.document.body);
 });
+
+
